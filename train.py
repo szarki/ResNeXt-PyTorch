@@ -3,11 +3,10 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data
-import torchvision
-import torchvision.transforms as transforms
 import argparse
 
 from models import resnext
+from utils import set_seed, cifar, transformations
 
 
 def cmd_line_args():
@@ -39,24 +38,6 @@ def cmd_line_args():
     return parser.parse_args()
 
 
-def set_seed(seed):
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-
-
-def cifar(path, training, type='CIFAR10'):
-    if type == 'CIFAR10':
-        return torchvision.datasets.CIFAR10(path, train=True,
-                                            transform=transformations(training),
-                                            download=True)
-    elif type == 'CIFAR100':
-        return torchvision.datasets.CIFAR100(path, train=True,
-                                             transform=transformations(training),
-                                             download=True)
-    else:
-        raise ValueError("Allowed type of CIFAR is CIFAR10 or CIFAR100.")
-
-
 def split_indices(size, valid_size):
     indices = list(range(size))
     np.random.shuffle(indices)
@@ -65,8 +46,8 @@ def split_indices(size, valid_size):
 
 
 def train_eval_loaders(path, batch_size, valid_size, num_workers, pin_memory, type='CIFAR10'):
-    train_data = cifar(path, True, type)
-    eval_data = cifar(path, False, type)
+    train_data = cifar(path=path, transform=transformations(True), type=type)
+    eval_data = cifar(path=path, transform=transformations(False), type=type)
 
     train_idx, eval_idx = split_indices(len(train_data), valid_size)
 
@@ -86,25 +67,6 @@ def train_eval_loaders(path, batch_size, valid_size, num_workers, pin_memory, ty
                                               pin_memory=pin_memory)
 
     return train_loader, eval_loader
-
-
-def transformations(training=True):
-    mean_papers, std_papers = [125.3, 123.0, 113.9], [63.0, 62.1, 66.7]
-    mean, std = [x / 255 for x in mean_papers], [x / 255 for x in std_papers]
-
-    if training:
-        return transforms.Compose([
-            transforms.Pad(padding=4),
-            transforms.RandomCrop(size=32),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize(mean, std)
-        ])
-    else:
-        return transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(mean, std)
-        ])
 
 
 def train(model, optimizer, dataloader, device, verbose_size=10):
